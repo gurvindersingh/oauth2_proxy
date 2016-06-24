@@ -8,10 +8,13 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type DataPortenProvider struct {
 	*ProviderData
+	groups    []string
+	GroupsURL *url.URL
 }
 
 func NewDataPortenProvider(p *ProviderData) *DataPortenProvider {
@@ -46,12 +49,19 @@ func NewDataPortenProvider(p *ProviderData) *DataPortenProvider {
 	}
 
 	if p.Scope == "" {
-		p.Scope = "email"
+		p.Scope = "email groups"
 	}
 	return &DataPortenProvider{ProviderData: p}
 }
 
 func (p *DataPortenProvider) GetEmailAddress(s *SessionState) (string, error) {
+
+	// Make sure user is member of the allowed groups before continueing
+	if p.groups != nil {
+		if ok, err := p.isMember(s.AccessToken); err != nil || !ok {
+			return "", err
+		}
+	}
 
 	req, err := http.NewRequest("GET", p.ProfileURL.String(), nil)
 	if err != nil {
@@ -80,4 +90,61 @@ func (p *DataPortenProvider) GetEmailAddress(s *SessionState) (string, error) {
 		return data.String()
 	}
 	return "", errors.New("Failed in getting email")
+}
+
+// SetGroups initialized the groups information to authorize only
+// group members. If no groups are provided, any authenticated users
+// is allowed
+func (p *DataPortenProvider) SetGroups(groups string) {
+	if groups != "" {
+		p.GroupsURL = &url.URL{
+			Scheme: "https",
+			Host:   "groups-api.dataporten.no",
+			Path:   "/groups/me/groups",
+		}
+		p.groups = strings.Split(groups, ",")
+		fmt.Println("Groups", p.groups)
+	}
+}
+
+// Fetch groups from dataporten and see if the user is member of
+// any allowed groups
+func (p *DataPortenProvider) isMember(token string) (bool, error) {
+	req, err := http.NewRequest("GET", p.GroupsURL.String(), nil)
+	if err != nil {
+		log.Printf("failed in building group request", err)
+		return false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("%s %s %s", req.Method, req.URL, err)
+		return false, err
+	}
+
+	if resp.StatusCode != 200 {
+		return false, fmt.Errorf("got %d", resp.StatusCode)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	json, err := simplejson.NewJson(body)
+	if err != nil {
+		log.Printf("failed in fetching groups info", err)
+		return false, err
+	}
+
+	groups, err := json.Array()
+	if err != nil {
+		log.Printf("failed in parsing groups info", err)
+		return false, err
+	}
+	for _, group := range groups {
+		for _, allowedGrp := range p.groups {
+			if allowedGrp == group.(map[string]interface{})["id"] {
+				return true, nil
+			}
+		}
+
+	}
+	return false, nil
 }
