@@ -97,13 +97,18 @@ func (p *DataPortenProvider) GetEmailAddress(s *SessionState) (string, error) {
 // is allowed
 func (p *DataPortenProvider) SetGroups(groups string) {
 	if groups != "" {
-		p.GroupsURL = &url.URL{
-			Scheme: "https",
-			Host:   "groups-api.dataporten.no",
-			Path:   "/groups/me/groups",
-		}
 		p.groups = strings.Split(groups, ",")
-		fmt.Println("Groups", p.groups)
+		if p.GroupsURL == nil {
+			p.setGroupsURL()
+		}
+	}
+}
+
+func (p *DataPortenProvider) setGroupsURL() {
+	p.GroupsURL = &url.URL{
+		Scheme: "https",
+		Host:   "groups-api.dataporten.no",
+		Path:   "/groups/me/groups",
 	}
 }
 
