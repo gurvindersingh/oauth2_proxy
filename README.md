@@ -19,7 +19,7 @@ There is an example config file in config folder which explains few importants p
 There is a _Dockerfile_ in the repo and a published docker image. To run using docker
 
 ```
-docker run -it gurvin/oauth2_proxy:latest
+docker run -it -v config.toml:/config/config.toml gurvin/oauth2_proxy:latest
 ```
 
 To see the command line parameters which can be used in addition to config file
