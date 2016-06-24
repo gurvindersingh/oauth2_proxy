@@ -10,7 +10,7 @@ cookie_expire = 28800000
 # from your authentication provider e.g. Dataporten, Github, Google
 provider = "dataporten"
 client_id = "client ID"
-client_secret = "client Secret
+client_secret = "client Secret"
 
 # List of comma seperated groups ID for dataporten 
 # only Users who are members of this group will be allowed
@@ -20,8 +20,8 @@ dataporten_groups = "test:group"
 # Https address as to where the proxy will listen for connection
 # By default it listen on the below mentioned address, specify either
 # http or https address
-http_address = "127.0.0.1:4180"
-#https_address = "127.0.0.1:4180"
+http_address = "[::]:4180"
+#https_address = "[::]:4180"
 
 # SSL Configration, to enable uncomment below options and 
 # specify correct certificate path. Also make sure to switch
