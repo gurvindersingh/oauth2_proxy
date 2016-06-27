@@ -13,8 +13,9 @@ import (
 
 type DataPortenProvider struct {
 	*ProviderData
-	groups    []string
-	GroupsURL *url.URL
+	allowedGroups []string
+	GroupsURL     *url.URL
+	MASGroupsURL  *url.URL
 }
 
 func NewDataPortenProvider(p *ProviderData) *DataPortenProvider {
@@ -49,7 +50,7 @@ func NewDataPortenProvider(p *ProviderData) *DataPortenProvider {
 	}
 
 	if p.Scope == "" {
-		p.Scope = "groups userid profile"
+		p.Scope = "groups userid"
 	}
 	return &DataPortenProvider{ProviderData: p}
 }
@@ -59,9 +60,9 @@ func NewDataPortenProvider(p *ProviderData) *DataPortenProvider {
 func (p *DataPortenProvider) GetEmailAddress(s *SessionState) (string, error) {
 
 	// Make sure user is member of the allowed groups before continueing
-	if p.groups != nil {
-		if ok, err := p.isMember(s.AccessToken); err != nil || !ok {
-			return "", err
+	if p.allowedGroups != nil {
+		if !p.isMember(s.AccessToken) {
+			return "", nil
 		}
 	}
 
@@ -102,61 +103,88 @@ func (p *DataPortenProvider) GetEmailAddress(s *SessionState) (string, error) {
 // SetGroups initialized the groups information to authorize only
 // group members. If no groups are provided, any authenticated users
 // is allowed
-func (p *DataPortenProvider) SetGroups(groups string) {
+func (p *DataPortenProvider) SetGroups(groups string, masGroupsURL string) {
 	if groups != "" {
-		p.groups = strings.Split(groups, ",")
+		p.allowedGroups = strings.Split(groups, ",")
+		// IF groups
 		if p.GroupsURL == nil {
-			p.setGroupsURL()
+			p.GroupsURL = &url.URL{
+				Scheme: "https",
+				Host:   "groups-api.dataporten.no",
+				Path:   "/groups/me/groups",
+			}
+		}
+		if masGroupsURL != "" {
+			url, err := url.Parse(masGroupsURL)
+			if err != nil {
+				log.Printf("Failed in parsing MASGroupsURL %s", masGroupsURL)
+				return
+			}
+			p.MASGroupsURL = url
 		}
 	}
 }
 
-func (p *DataPortenProvider) setGroupsURL() {
-	p.GroupsURL = &url.URL{
-		Scheme: "https",
-		Host:   "groups-api.dataporten.no",
-		Path:   "/groups/me/groups",
-	}
-}
-
-// Fetch groups from dataporten and see if the user is member of
-// any allowed groups
-func (p *DataPortenProvider) isMember(token string) (bool, error) {
-	req, err := http.NewRequest("GET", p.GroupsURL.String(), nil)
+// Fetch groups from dataporten and MAS for given token
+func getGroups(
+	token string,
+	url string) ([]string, error) {
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Printf("failed in building group request", err)
-		return false, err
+		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Printf("%s %s %s", req.Method, req.URL, err)
-		return false, err
+		return nil, err
 	}
 
 	if resp.StatusCode != 200 {
-		return false, fmt.Errorf("got %d", resp.StatusCode)
+		return nil, fmt.Errorf("got %d", resp.StatusCode)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	defer resp.Body.Close()
 	json, err := simplejson.NewJson(body)
 	if err != nil {
 		log.Printf("failed in fetching groups info", err)
-		return false, err
+		return nil, err
 	}
-
-	groups, err := json.Array()
+	jsonGroups, err := json.Array()
 	if err != nil {
 		log.Printf("failed in parsing groups info", err)
-		return false, err
+		return nil, err
+	}
+
+	var groups []string
+	for _, grp := range jsonGroups {
+		groups = append(groups, grp.(map[string]interface{})["id"].(string))
+	}
+
+	return groups, nil
+}
+
+// see if the user is member of any allowed groups
+func (p *DataPortenProvider) isMember(token string) bool {
+	groups, err := getGroups(token, p.GroupsURL.String())
+	if err != nil {
+		log.Printf("failed in getting groups info from Dataporten", err)
+	}
+	if p.MASGroupsURL != nil {
+		masGroups, err := getGroups(token, p.MASGroupsURL.String())
+		if err != nil {
+			log.Printf("failed in getting groups info from MAS", err)
+		} else {
+			groups = append(groups, masGroups...)
+		}
 	}
 	for _, group := range groups {
-		for _, allowedGrp := range p.groups {
-			if allowedGrp == group.(map[string]interface{})["id"] {
-				return true, nil
+		for _, allowedGrp := range p.allowedGroups {
+			if allowedGrp == group {
+				return true
 			}
 		}
-
 	}
-	return false, nil
+	return false
 }

@@ -63,6 +63,7 @@ type Options struct {
 	ProfileURL        string `flag:"profile-url" cfg:"profile_url"`
 	ProtectedResource string `flag:"resource" cfg:"resource"`
 	ValidateURL       string `flag:"validate-url" cfg:"validate_url"`
+	MASGroupsURL      string `flag:"masgroups-url" cfg:"masgroups_url"`
 	Scope             string `flag:"scope" cfg:"scope"`
 	ApprovalPrompt    string `flag:"approval-prompt" cfg:"approval_prompt"`
 
@@ -229,7 +230,7 @@ func parseProviderInfo(o *Options, msgs []string) []string {
 	case *providers.GitHubProvider:
 		p.SetOrgTeam(o.GitHubOrg, o.GitHubTeam)
 	case *providers.DataPortenProvider:
-		p.SetGroups(o.DataPortenGroups)
+		p.SetGroups(o.DataPortenGroups, o.MASGroupsURL)
 	case *providers.GoogleProvider:
 		if o.GoogleServiceAccountJSON != "" {
 			file, err := os.Open(o.GoogleServiceAccountJSON)

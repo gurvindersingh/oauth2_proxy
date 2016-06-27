@@ -1,7 +1,6 @@
 package providers
 
 import (
-	"fmt"
 	"github.com/bmizerany/assert"
 	"net/http"
 	"net/http/httptest"
@@ -51,7 +50,7 @@ func TestDataPortenProviderDefaults(t *testing.T) {
 		p.Data().ProfileURL.String())
 	assert.Equal(t, "https://example.com/userinfo",
 		p.Data().ValidateURL.String())
-	assert.Equal(t, "email groups", p.Data().Scope)
+	assert.Equal(t, "groups userid", p.Data().Scope)
 }
 
 func testDataPortenBackend(userInfo string, groupInfo string) *httptest.Server {
@@ -61,7 +60,6 @@ func testDataPortenBackend(userInfo string, groupInfo string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			url := r.URL
-			fmt.Println(url.Path)
 			if r.Header.Get("Authorization") != "Bearer imaginary_access_token" {
 				w.WriteHeader(403)
 			} else if url.Path == userinfoPath {
@@ -78,7 +76,7 @@ func testDataPortenBackend(userInfo string, groupInfo string) *httptest.Server {
 
 func TestDataPortenProviderGetEmailAddress(t *testing.T) {
 	b := testDataPortenBackend(
-		`{"user":{"userid_sec":[], "email": "ola.norman@norge.no", "userid":"0923894sd-ef9b-492a-4e35-c6ec61f092cd","name":"Ola Norman"},"audience":"c110bb27-b7b8-44d3-8f52-f87203d8ff59"}`,
+		`{"user":{"userid_sec":[], "email": "ola.norman@norge.no", "userid":"0923894sd","name":"Ola Norman"},"audience":"c110bb27-b7b8-44d3-8f52-f87203d8ff59"}`,
 		`[{"id":"testgroup"}]`)
 	defer b.Close()
 
@@ -86,9 +84,9 @@ func TestDataPortenProviderGetEmailAddress(t *testing.T) {
 	p := testDataPortenProvider(b_url.Host)
 
 	session := &SessionState{AccessToken: "imaginary_access_token"}
-	email, err := p.GetEmailAddress(session)
+	userid, err := p.GetEmailAddress(session)
 	assert.Equal(t, nil, err)
-	assert.Equal(t, "ola.norman@norge.no", email)
+	assert.Equal(t, "0923894sd", userid)
 
 	// Test groups permissions
 	p.GroupsURL = &url.URL{
@@ -96,13 +94,37 @@ func TestDataPortenProviderGetEmailAddress(t *testing.T) {
 		Host:   b_url.Host,
 		Path:   "/groups/me/groups",
 	}
-	p.SetGroups("testgroup")
-	fmt.Println(p.GroupsURL, b_url.Host)
-	email, err = p.GetEmailAddress(session)
+	p.SetGroups("testgroup", "")
+	userid, err = p.GetEmailAddress(session)
 	assert.Equal(t, nil, err)
-	assert.Equal(t, "ola.norman@norge.no", email)
+	assert.Equal(t, "0923894sd", userid)
 
-	p.SetGroups("testgroup-fail")
-	email, err = p.GetEmailAddress(session)
-	assert.NotEqual(t, "ola.norman@norge.no", email)
+	p.SetGroups("testgroup-fail", "")
+	userid, err = p.GetEmailAddress(session)
+	assert.NotEqual(t, "0923894sd", userid)
+}
+
+func TestDataPortenProviderGetEmailAddressMASGroups(t *testing.T) {
+	b := testDataPortenBackend(
+		`{"user":{"userid_sec":[], "email": "ola.norman@norge.no", "userid":"0923894sd","name":"Ola Norman"},"audience":"c110bb27-b7b8-44d3-8f52-f87203d8ff59"}`,
+		`[{"id":"NS98237K"}]`)
+	defer b.Close()
+
+	b_url, _ := url.Parse(b.URL)
+	p := testDataPortenProvider(b_url.Host)
+
+	session := &SessionState{AccessToken: "imaginary_access_token"}
+	userid, err := p.GetEmailAddress(session)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, "0923894sd", userid)
+
+	// Test groups permissions fetch from MASGroupsURL now
+	p.SetGroups("NS98237K", "http://"+b_url.Host+"/groups/me/groups")
+	userid, err = p.GetEmailAddress(session)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, "0923894sd", userid)
+
+	p.SetGroups("NS98237K-fail", "")
+	userid, err = p.GetEmailAddress(session)
+	assert.NotEqual(t, "0923894sd", userid)
 }

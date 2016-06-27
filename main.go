@@ -71,6 +71,7 @@ func main() {
 	flagSet.String("profile-url", "", "Profile access endpoint")
 	flagSet.String("resource", "", "The resource that is protected (Azure AD only)")
 	flagSet.String("validate-url", "", "Access token validation endpoint")
+	flagSet.String("masgroups-url", "", "URL to fetch groups from MAS")
 	flagSet.String("scope", "", "OAuth scope specification")
 	flagSet.String("approval-prompt", "force", "OAuth approval_prompt")
 
