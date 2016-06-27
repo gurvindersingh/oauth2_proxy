@@ -49,11 +49,13 @@ func NewDataPortenProvider(p *ProviderData) *DataPortenProvider {
 	}
 
 	if p.Scope == "" {
-		p.Scope = "email groups"
+		p.Scope = "groups userid profile"
 	}
 	return &DataPortenProvider{ProviderData: p}
 }
 
+// GetEmailAddress returns authenticated user's ID. We can't get email address from
+// every vendor and thus chose to use dataporten User ID
 func (p *DataPortenProvider) GetEmailAddress(s *SessionState) (string, error) {
 
 	// Make sure user is member of the allowed groups before continueing
@@ -86,10 +88,15 @@ func (p *DataPortenProvider) GetEmailAddress(s *SessionState) (string, error) {
 		return "", err
 	}
 
-	if data, ok := json.Get("user").CheckGet("email"); ok {
-		return data.String()
+	if data, ok := json.Get("user").CheckGet("userid"); ok {
+		userid, err := data.String()
+		if err != nil {
+			log.Printf("Failed in parsing userid", err)
+			return "", err
+		}
+		return userid, nil
 	}
-	return "", errors.New("Failed in getting email")
+	return "", errors.New("Failed in getting userid")
 }
 
 // SetGroups initialized the groups information to authorize only
