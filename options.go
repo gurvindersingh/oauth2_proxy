@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -202,6 +203,7 @@ func (o *Options) Validate() error {
 	}
 
 	msgs = parseSignatureKey(o, msgs)
+	msgs = validateCookieName(o, msgs)
 
 	if len(msgs) != 0 {
 		return fmt.Errorf("Invalid configuration:\n  %s",
@@ -261,6 +263,14 @@ func parseSignatureKey(o *Options, msgs []string) []string {
 			o.SignatureKey)
 	} else {
 		o.signatureData = &SignatureData{hash, secretKey}
+	}
+	return msgs
+}
+
+func validateCookieName(o *Options, msgs []string) []string {
+	cookie := &http.Cookie{Name: o.CookieName}
+	if cookie.String() == "" {
+		return append(msgs, fmt.Sprintf("invalid cookie name: %q", o.CookieName))
 	}
 	return msgs
 }
