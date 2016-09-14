@@ -119,7 +119,7 @@ func (o *Options) Validate() error {
 	if len(o.Upstreams) < 1 {
 		msgs = append(msgs, "missing setting: upstream")
 	}
-	if o.CookieSecret == "" {
+	if o.CookieSecret == "" && o.CookieSecure {
 		msgs = append(msgs, "missing setting: cookie-secret")
 	}
 	if o.ClientID == "" {
