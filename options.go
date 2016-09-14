@@ -31,7 +31,7 @@ type Options struct {
 	EmailDomains             []string `flag:"email-domain" cfg:"email_domains"`
 	GitHubOrg                string   `flag:"github-org" cfg:"github_org"`
 	GitHubTeam               string   `flag:"github-team" cfg:"github_team"`
-	DataPortenGroups         string   `flag:"dataporten-groups" cfg:"dataporten_groups"`
+	DataPortenGroups         string   `flag:"dataporten-groups" cfg:"dataporten_groups" env:"DATAPORTEN_GROUPS"`
 	GoogleGroups             []string `flag:"google-group" cfg:"google_group"`
 	GoogleAdminEmail         string   `flag:"google-admin-email" cfg:"google_admin_email"`
 	GoogleServiceAccountJSON string   `flag:"google-service-account-json" cfg:"google_service_account_json"`
@@ -64,7 +64,7 @@ type Options struct {
 	ProfileURL        string `flag:"profile-url" cfg:"profile_url"`
 	ProtectedResource string `flag:"resource" cfg:"resource"`
 	ValidateURL       string `flag:"validate-url" cfg:"validate_url"`
-	MASGroupsURL      string `flag:"masgroups-url" cfg:"masgroups_url"`
+	MASGroupsURL      string `flag:"masgroups-url" cfg:"masgroups_url" env:"MASGROUPS_URL"`
 	Scope             string `flag:"scope" cfg:"scope" env:"DATAPORTEN_SCOPES"`
 	ApprovalPrompt    string `flag:"approval-prompt" cfg:"approval_prompt"`
 
